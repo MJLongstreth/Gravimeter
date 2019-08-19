@@ -1,0 +1,18 @@
+"0","edds <- read_csv(""edds.csv"")"
+"2","Parsed with column specification:
+cols(
+  year_month = [31mcol_character()[39m,
+  productions = [32mcol_double()[39m,
+  natives = [32mcol_double()[39m,
+  images = [32mcol_double()[39m,
+  sql_text = [32mcol_double()[39m
+)
+"
+"0","edds <- edds %>%"
+"0","  mutate(total_volume_GB = apply(edds[-1], 1, sum)) %>%"
+"0","  mutate(cost_per_GB = hosting_cost) %>%"
+"0","  mutate(monthly_hosting_cost = round((total_volume_GB * hosting_cost),2)) %>%"
+"0","  arrange(desc(year_month))"
+"0",""
+"0","inv_edds <- edds %>%"
+"0","  select(year_month, monthly_hosting_cost)"

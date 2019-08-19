@@ -1,0 +1,22 @@
+"0","promotion <- read_csv(""promotion.csv"")"
+"2","Parsed with column specification:
+cols(
+  ticket_number = [32mcol_double()[39m,
+  requesting_attorney = [31mcol_character()[39m,
+  date_submitted = [31mcol_character()[39m,
+  date_complete = [31mcol_character()[39m,
+  total_of_natives_gb = [32mcol_double()[39m
+)
+"
+"0","promotion$date_submitted <- mdy(promotion$date_submitted)"
+"0","promotion$date_complete <- mdy(promotion$date_complete)"
+"0","promotion <- promotion %>%"
+"0","  mutate(year_month = substr(date_complete,0,7)) %>%"
+"0","  mutate(cost_per_GB = promotion_cost) %>%"
+"0","  mutate(promotion_cost = round((total_of_natives_gb * promotion_cost), 2)) %>%"
+"0","  arrange(desc(year_month))"
+"0",""
+"0","inv_promotion <- promotion %>% "
+"0","  select(year_month, promotion_cost) %>%"
+"0","  group_by(year_month) %>%"
+"0","  summarize(sum(promotion_cost))"

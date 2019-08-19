@@ -1,0 +1,4 @@
+"0","invoices <- full_join(inv_processing, inv_promotion, by = 'year_month')"
+"2","Error in full_join(inv_processing, inv_promotion, by = ""year_month"") : 
+  object 'inv_processing' not found
+"

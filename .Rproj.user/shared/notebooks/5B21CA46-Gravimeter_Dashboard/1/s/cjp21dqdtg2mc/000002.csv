@@ -1,0 +1,21 @@
+"0","users <- read_csv(""users.csv"")"
+"2","Parsed with column specification:
+cols(
+  attorney_name = [31mcol_character()[39m,
+  access_date = [31mcol_character()[39m
+)
+"
+"0","users <- users %>%"
+"0","  mutate(year_month = substr(mdy(users$access_date),0,7)) %>%"
+"0","  select(attorney_name, year_month) %>%"
+"0","  group_by(attorney_name, year_month) %>%"
+"0","  summarize(access_count = n()) %>%"
+"0","  mutate(monthly_user_fee = user_fee) %>%"
+"0","  arrange(desc(year_month), attorney_name)"
+"0",""
+"0","inv_users <- users %>%"
+"0","  select(year_month, monthly_user_fee) %>%"
+"0","  group_by(year_month) %>%"
+"0","  summarize(sum(monthly_user_fee))"
+"2","Adding missing grouping variables: `attorney_name`
+"

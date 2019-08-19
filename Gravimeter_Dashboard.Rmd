@@ -1,0 +1,357 @@
+---
+title: "Gravimeter"
+author: "Mike Longstreth's Workspace"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: 
+  flexdashboard::flex_dashboard:
+    theme: cerulean
+    orientation:: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+# library(leaflet)
+library(DT)
+library(knitr)
+library(scales)
+```
+
+```{r}
+user_fee=c(100)
+processing_cost=c(75)
+promotion_cost=c(150)
+hosting_cost=c(25)
+budget=c(250000)
+```
+
+```{r}
+users <- read_csv("users.csv")
+users <- users %>%
+  mutate(year_month = substr(mdy(users$access_date),0,7)) %>%
+  select(attorney_name, year_month) %>%
+  group_by(attorney_name, year_month) %>%
+  summarize(access_count = n()) %>%
+  mutate(monthly_user_fee = user_fee) %>%
+  arrange(desc(year_month), attorney_name)
+
+inv_users <- users %>%
+  select(year_month, monthly_user_fee) %>%
+  group_by(year_month) %>%
+  summarize(sum(monthly_user_fee))
+```
+
+```{r}
+edds <- read_csv("edds.csv")
+edds <- edds %>%
+  mutate(total_volume_GB = apply(edds[-1], 1, sum)) %>%
+  mutate(cost_per_GB = hosting_cost) %>%
+  mutate(monthly_hosting_cost = round((total_volume_GB * hosting_cost),2)) %>%
+  arrange(desc(year_month))
+
+inv_edds <- edds %>%
+  select(year_month, monthly_hosting_cost)
+```
+
+```{r}
+processing <- read_csv("processing.csv")
+processing$date_submitted <- mdy(processing$date_submitted)
+processing$date_complete <- mdy(processing$date_complete)
+processing <- processing %>%
+  mutate(year_month = substr(date_complete,0,7)) %>%
+  mutate(cost_per_GB = processing_cost) %>%
+  mutate(processing_cost = round((data_volume_post_exp_gb * processing_cost), 2)) %>%
+  arrange(desc(year_month))
+
+inv_processing <- processing %>%
+  select(year_month, processing_cost) %>%
+  group_by(year_month) %>%
+  summarize(sum(processing_cost))
+```
+
+```{r}
+promotion <- read_csv("promotion.csv")
+promotion$date_submitted <- mdy(promotion$date_submitted)
+promotion$date_complete <- mdy(promotion$date_complete)
+promotion <- promotion %>%
+  mutate(year_month = substr(date_complete,0,7)) %>%
+  mutate(cost_per_GB = promotion_cost) %>%
+  mutate(promotion_cost = round((total_of_natives_gb * promotion_cost), 2)) %>%
+  arrange(desc(year_month))
+
+inv_promotion <- promotion %>% 
+  select(year_month, promotion_cost) %>%
+  group_by(year_month) %>%
+  summarize(sum(promotion_cost))
+```
+
+```{r}
+invoices <- full_join(inv_processing, inv_promotion, by = 'year_month')
+
+invoices <- full_join(invoices, inv_edds, by = 'year_month')
+
+invoices <- full_join(invoices, inv_users, by = 'year_month')
+
+invoices <- invoices %>%
+  mutate(invoice_total = apply(invoices[-1], 1, sum, na.rm=TRUE)) %>%
+  arrange(desc(year_month))
+
+invoice_columns <- c('year_month', 'processing', 'promotion', 'hosting', 'users', 'total')
+
+names(invoices) <- invoice_columns
+
+inv_allocation <- gather(invoices, key='cost_type', value='amount', -year_month, -total) %>%
+  select(cost_type, amount) %>%
+  drop_na() %>%
+  group_by(cost_type) %>%
+  summarize(sum(amount))
+inv_allocation_columns <- c('cost_type', 'amount')
+names(inv_allocation) <- inv_allocation_columns
+
+```
+
+Overview
+=====================================
+
+Column {data-width=600}
+---------------------
+
+### Project Costs
+```{r}
+invoices_chart <- plot_ly(
+  x = invoices$year_month,
+  y = invoices$total,
+  name = "Invoices",
+  type = "bar") %>%
+    layout(title = "Project Costs",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Cost"))
+
+invoices_chart
+```
+
+***
+
+> Average Invoice Cost: $`r toString(round(mean(invoices$total),2))`
+
+### Invoices
+```{r}
+datatable(invoices,
+          rownames = FALSE,
+          extensions = 'Buttons', options = list(
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+          ))
+```
+
+Column {data-width=400}
+---------------------
+
+### Cost Allocation
+```{r fig.height=7}
+p <- plot_ly(
+  x = inv_allocation$cost_type,
+  y = inv_allocation$amount,
+  name = "Cost Allocation",
+  type = "bar",
+  color = inv_allocation$cost_type
+) %>%
+  layout(title = "Cost Allocation",
+         xaxis = list(title = "Tech Type"),
+         yaxis = list(title = "Cost"),
+         showlegend = FALSE)
+
+p
+```
+
+### Unit Costs
+```{r fig.height=3.5}
+unit_costs <- data.frame("User" = dollar(user_fee),
+                         "Processing" = dollar(processing_cost),
+                         "Promotion" = dollar(promotion_cost),
+                         "Hosting" = dollar(hosting_cost)
+)
+unit_costs <- gather(unit_costs, key='cost_type', value='amount')
+unit_costs$unit <- c('Month', 'GB', 'GB', 'GB')
+
+kable(unit_costs)
+```
+
+### Total Project Cost
+```{r}
+total_project_cost <- round(sum(invoices$total),2)
+
+valueBox(dollar(total_project_cost), 
+         icon = "fa-money-bill-wave",
+         color = "info")
+```
+
+### Current Budget
+```{r}
+valueBox(dollar(budget), 
+         icon = "fa-wallet",
+         color = "success")
+```
+
+### Percent of Budget Used
+```{r}
+project_status <- round((total_project_cost / budget) * 100)
+
+gauge(value = project_status,
+      min = 0,
+      max = 100,
+      symbol = '%',
+      sectors = gaugeSectors(success = c(0, 66),
+                             warning = c(67, 90),
+                             danger = c(91, 100)))
+
+```
+
+
+Tech Charges {data-orientation=rows}
+=====================================
+
+Row {data-height=500 .tabset .tabset-fade}
+---------------------
+
+### Processing Overview
+```{r}
+processing_overivew <- plot_ly(
+  x = processing$year_month,
+  y = processing$processing_cost,
+  name = "Processing Overview",
+  type = "bar") %>%
+    layout(title = "Processing Costs",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Cost"))
+
+processing_overivew
+```
+
+***
+
+> Total Processing Costs: $`r toString(round(sum(processing$processing_cost),2))`;
+> Total GB Processed: `r toString(round(sum(processing$data_volume_post_exp_gb),2))`
+
+### Processing Details
+```{r}
+datatable(processing,
+          rownames = FALSE,
+          extensions = 'Buttons', options = list(
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+          ))
+```
+
+***
+
+> Total Processing Costs: $`r toString(round(sum(processing$processing_cost),2))`;
+> Total GB Processed: `r toString(round(sum(processing$data_volume_post_exp_gb),2))`
+
+Row {data-height=500 .tabset .tabset-fade}
+---------------------
+
+### Promotion Overview
+
+```{r}
+promotion_overivew <- plot_ly(
+  x = promotion$year_month,
+  y = promotion$promotion_cost,
+  name = "Processing Overview",
+  type = "bar") %>%
+    layout(title = "Promotion Costs",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Cost"))
+
+promotion_overivew
+```
+
+***
+
+> Total Promotion Costs: $`r toString(round(sum(promotion$promotion_cost),2))`;
+> Total GB Promoted: `r toString(round(sum(promotion$total_of_natives_gb),2))`
+
+### Promotion Details
+```{r}
+datatable(promotion,
+          rownames = FALSE,
+          extensions = 'Buttons', options = list(
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+          ))
+```
+
+
+***
+
+> Total Promotion Costs: $`r toString(round(sum(promotion$promotion_cost),2))`;
+> Total GB Promoted: `r toString(round(sum(promotion$total_of_natives_gb),2))`
+
+
+Monthly Charges
+=====================================
+
+Column {data-width=500}
+---------------------
+
+### Hosting Details
+```{r}
+datatable(edds,
+          rownames = FALSE,
+          extensions = 'Buttons', options = list(
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+          ))
+```
+
+> Total Hosting Costs: $`r toString(round(sum(edds$monthly_hosting_cost),2))`
+
+### Hosting Overview
+```{r}
+hosting_overivew <- plot_ly(
+  x = edds$year_month,
+  y = edds$monthly_hosting_cost,
+  name = "Hosting Overview",
+  type = "bar") %>%
+    layout(title = "Hosting Costs",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Cost"))
+
+hosting_overivew
+```
+
+
+Column {data-width=500}
+---------------------
+
+### Users Details
+```{r}
+datatable(users,
+          rownames = FALSE,
+          extensions = 'Buttons', options = list(
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+          ))
+```
+
+> Total User Fees: $`r toString(round(sum(users$monthly_user_fee),2))`
+
+### Users Overview
+```{r}
+inv_users <- plot_ly(
+  x = inv_users$year_month,
+  y = inv_users$`sum(monthly_user_fee)`,
+  name = "Users Overview",
+  type = "bar") %>%
+    layout(title = "User Costs",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Cost"))
+
+inv_users
+```

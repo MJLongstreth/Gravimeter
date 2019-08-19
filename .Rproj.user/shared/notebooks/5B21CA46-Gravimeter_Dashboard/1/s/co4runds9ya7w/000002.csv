@@ -1,0 +1,6 @@
+"0","datatable(invoices,"
+"0","          rownames = FALSE,"
+"0","          extensions = 'Buttons', options = list("
+"0","            dom = 'Bfrtip',"
+"0","            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')"
+"0","          ))"

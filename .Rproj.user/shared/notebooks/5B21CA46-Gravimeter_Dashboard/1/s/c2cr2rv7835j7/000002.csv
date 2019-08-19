@@ -1,0 +1,22 @@
+"0","processing <- read_csv(""processing.csv"")"
+"2","Parsed with column specification:
+cols(
+  ticket_number = [32mcol_double()[39m,
+  requesting_attorney = [31mcol_character()[39m,
+  date_submitted = [31mcol_character()[39m,
+  date_complete = [31mcol_character()[39m,
+  data_volume_post_exp_gb = [32mcol_double()[39m
+)
+"
+"0","processing$date_submitted <- mdy(processing$date_submitted)"
+"0","processing$date_complete <- mdy(processing$date_complete)"
+"0","processing <- processing %>%"
+"0","  mutate(year_month = substr(date_complete,0,7)) %>%"
+"0","  mutate(cost_per_GB = processing_cost) %>%"
+"0","  mutate(processing_cost = round((data_volume_post_exp_gb * processing_cost), 2)) %>%"
+"0","  arrange(desc(year_month))"
+"0",""
+"0","inv_processing <- processing %>%"
+"0","  select(year_month, processing_cost) %>%"
+"0","  group_by(year_month) %>%"
+"0","  summarize(sum(processing_cost))"
