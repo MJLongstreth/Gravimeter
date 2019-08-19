@@ -1,5 +1,5 @@
 ---
-title: "Project Analysis"
+title: "Gravimeter"
 author: "Mike Longstreth's Workspace"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 output: 
