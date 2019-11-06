@@ -1,2 +1,2 @@
 # Gravimeter
-https://htmlpreview.github.io/?https://github.com/MJLongstreth/Gravimeter/blob/master/Gravimeter_Dashboard.html
+https://mjlongstreth.github.io/Gravimeter/Gravimeter_Dashboard.html
